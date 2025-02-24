@@ -1,0 +1,14 @@
+[
+    {
+      "id": 1,
+      "name": "sample_image.jpg",
+      "type": "image",
+      "path": "data/sample_image.jpg"
+    },
+    {
+      "id": 2,
+      "name": "sample_text.txt",
+      "type": "text",
+      "path": "data/sample_text.txt"
+    }
+  ]

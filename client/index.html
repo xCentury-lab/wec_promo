@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Material Editor Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #material-list, #editor, #uploader {
+            margin: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        #editor, #uploader {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Material Editor Demo</h1>
+    <div id="material-list">
+        <h2>Material List</h2>
+        <ul id="material-list-items"></ul>
+        <button id="upload-button">Upload New Material</button>
+    </div>
+    <div id="uploader">
+        <h2>Upload New Material</h2>
+        <div>
+            <h3>Upload Image</h3>
+            <input type="file" id="image-upload-input" accept="image/*">
+            <button id="image-upload-button">Upload Image</button>
+        </div>
+        <div>
+            <h3>Upload Text</h3>
+            <textarea id="text-upload-input"></textarea>
+            <button id="text-upload-button">Upload Text</button>
+        </div>
+    </div>
+    <div id="editor">
+        <h2>Editor</h2>
+        <div id="editor-content"></div>
+        <button id="download-button">Download Edited Material</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

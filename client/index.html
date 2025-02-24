@@ -1,48 +1,268 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Material Editor Demo</title>
+    <title>店舗エージェント商品宣伝支援システム</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
         }
-        #material-list, #editor, #uploader {
-            margin: 20px;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .material-card, .upload-card {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .material-card a, .material-card button {
+            margin-left: 10px;
+            text-decoration: none;
+            color: #007bff;
+            padding: 5px 10px;
+            border: 1px solid #007bff;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .material-card button:hover, .upload-card button:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            display: block;
+        }
+        #preview {
+            max-width: 300px;
+            border: 1px solid #ddd;
+            margin: 10px 0;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, textarea, button {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result, #uploads {
+            margin-top: 20px;
             padding: 10px;
-            border: 1px solid #ccc;
+            background-color: #e9ecef;
+            border-radius: 5px;
         }
-        #editor, #uploader {
-            display: none;
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        @media (max-width: 768px) {
+            .material-card, .upload-card {
+                flex-direction: column;
+                text-align: center;
+            }
+            .material-card a, .material-card button {
+                margin: 5px 0;
+                display: block;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Material Editor Demo</h1>
-    <div id="material-list">
-        <h2>Material List</h2>
-        <ul id="material-list-items"></ul>
-        <button id="upload-button">Upload New Material</button>
-    </div>
-    <div id="uploader">
-        <h2>Upload New Material</h2>
-        <div>
-            <h3>Upload Image</h3>
-            <input type="file" id="image-upload-input" accept="image/*">
-            <button id="image-upload-button">Upload Image</button>
+    <div class="container">
+        <h1>店舗エージェント商品宣伝支援システム</h1>
+        
+        <div class="section">
+            <h2>商品リスト</h2>
+            <div id="materials"></div>
         </div>
-        <div>
-            <h3>Upload Text</h3>
-            <textarea id="text-upload-input"></textarea>
-            <button id="text-upload-button">Upload Text</button>
+        
+        <div class="section">
+            <h2>商品カスタマイズ</h2>
+            <canvas id="canvas" width="300" height="300"></canvas><br>
+            <input type="text" id="overlayText" placeholder="画像に追加するテキスト" style="width: 100%;">
+            <button onclick="customizeImage()">プレビュー更新</button>
+            <img id="preview" src="" alt="プレビュー">
+            <textarea id="customText" placeholder="カスタマイズした説明文" style="width: 100%; height: 100px;"></textarea>
+        </div>
+        
+        <div class="section">
+            <h2>エビデンスアップロード</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" name="screenshot" accept="image/*" required>
+                <input type="text" name="url" placeholder="SNS投稿URL" required>
+                <input type="text" name="comment" placeholder="コメント">
+                <input type="hidden" name="material_id" id="material_id">
+                <button type="submit">アップロード</button>
+            </form>
+        </div>
+        
+        <div class="section">
+            <h2>アップロード状況</h2>
+            <div id="uploads"></div>
+            <div id="result"></div>
         </div>
     </div>
-    <div id="editor">
-        <h2>Editor</h2>
-        <div id="editor-content"></div>
-        <button id="download-button">Download Edited Material</button>
-    </div>
-    <script src="script.js"></script>
+
+    <script>
+        let selectedImage = null;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 商品リスト取得
+        fetch('http://localhost:8080/materials')
+            .then(response => response.json())
+            .then(data => {
+                const materialsDiv = document.getElementById('materials');
+                data.forEach(material => {
+                    const div = document.createElement('div');
+                    div.className = 'material-card';
+                    div.innerHTML = `
+                        <span>${material.name} (${material.category})</span>
+                        <div>
+                            <a href="http://localhost:8080/materials/${material.id}?type=image" download>画像DL</a> |
+                            <a href="http://localhost:8080/materials/${material.id}?type=text" download>テキストDL</a> |
+                            <button onclick="selectMaterial(${material.id}, '${material.image}')">選択</button>
+                        </div>
+                    `;
+                    materialsDiv.appendChild(div);
+                });
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = `<span class="error">商品リストの取得に失敗しました: ${error.message}</span>`;
+            });
+
+        // 商品選択と画像読み込み
+        function selectMaterial(id, imagePath) {
+            document.getElementById('material_id').value = id;
+            selectedImage = new Image();
+            selectedImage.crossOrigin = "Anonymous";
+            selectedImage.src = `http://localhost:8080/materials/${id}?type=image`;
+            selectedImage.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
+                customizeImage();
+            };
+            selectedImage.onerror = () => {
+                document.getElementById('result').innerHTML = '<span class="error">画像の読み込みに失敗しました</span>';
+            };
+        }
+
+        // 画像カスタマイズ
+        function customizeImage() {
+            if (!selectedImage) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
+            const text = document.getElementById('overlayText').value;
+            if (text) {
+                ctx.font = "20px Arial";
+                ctx.fillStyle = "white";
+                ctx.fillText(text, 10, 30);
+            }
+            document.getElementById('preview').src = canvas.toDataURL();
+        }
+
+        // エビデンスアップロード
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('http://localhost:8080/uploads', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = `<span class="success">${data.message} (ID: ${data.evidence_id})</span>`;
+                updateUploads();
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = `<span class="error">アップロードに失敗しました: ${error.message}</span>`;
+            });
+        });
+
+        // アップロード状況更新
+        function updateUploads() {
+            fetch('http://localhost:8080/uploads')
+                .then(response => response.json())
+                .then(data => {
+                    const uploadsDiv = document.getElementById('uploads');
+                    uploadsDiv.innerHTML = '';
+                    data.forEach(upload => {
+                        const div = document.createElement('div');
+                        div.className = 'upload-card';
+                        div.innerHTML = `
+                            <span>Material ID: ${upload.material_id}, Status: ${upload.status}</span>
+                            <div>
+                                ${upload.qr_path ? `<a href="http://localhost:8080${upload.qr_path}" download>QRコードDL</a>` : ''}
+                                ${upload.status === 'pending' ? `<button onclick="review('${upload.id}', 'approve')">承認</button><button onclick="review('${upload.id}', 'reject')">却下</button>` : ''}
+                            </div>
+                        `;
+                        uploadsDiv.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    document.getElementById('uploads').innerHTML = `<span class="error">アップロード状況の取得に失敗しました: ${error.message}</span>`;
+                });
+        }
+
+        // 審査処理
+        function review(evidence_id, action) {
+            fetch(`http://localhost:8080/review/${evidence_id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = `<span class="${data.error ? 'error' : 'success'}">${data.message}</span>`;
+                updateUploads();
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = `<span class="error">審査処理に失敗しました: ${error.message}</span>`;
+            });
+        }
+
+        // 初期アップロード状況取得
+        updateUploads();
+    </script>
 </body>
 </html>

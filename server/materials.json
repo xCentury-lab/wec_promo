@@ -1,14 +1,23 @@
 [
     {
-      "id": 1,
-      "name": "sample_image.jpg",
-      "type": "image",
-      "path": "data/sample_image.jpg"
+        "id": 1,
+        "name": "オーガニックコーヒー",
+        "category": "飲料",
+        "image": "coffee.jpg",
+        "text": "coffee.txt"
     },
     {
-      "id": 2,
-      "name": "sample_text.txt",
-      "type": "text",
-      "path": "data/sample_text.txt"
+        "id": 2,
+        "name": "ハンドメイドキャンドル",
+        "category": "雑貨",
+        "image": "candle.jpg",
+        "text": "candle.txt"
+    },
+    {
+        "id": 3,
+        "name": "ヴィーガンクッキー",
+        "category": "食品",
+        "image": "cookie.jpg",
+        "text": "cookie.txt"
     }
-  ]
+]

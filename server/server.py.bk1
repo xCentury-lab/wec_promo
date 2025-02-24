@@ -95,17 +95,17 @@ def upload_evidence():
     if 'screenshot' not in request.files:
         logger.error("No screenshot provided in request")
         return jsonify({"error": "No screenshot provided"}), 400
-
+    
     screenshot = request.files['screenshot']
     url = request.form.get('url', '')
     comment = request.form.get('comment', '')
     material_id = int(request.form.get('material_id', 0))
-
+    
     # バリデーション
     if not url.startswith('http') or screenshot.mimetype not in ['image/png', 'image/jpeg']:
         logger.error(f"Invalid input: URL={url}, MIME={screenshot.mimetype}")
         return jsonify({"error": "Invalid URL or file format"}), 400
-
+    
     # ファイル保存先を upload/ に変更
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"evidence_{material_id}_{timestamp}.png"
@@ -113,22 +113,18 @@ def upload_evidence():
     try:
         screenshot.save(file_path)
         logger.info(f"Saved screenshot: {file_path}")
+    except PermissionError:
+        logger.error(f"Permission denied to save screenshot: {file_path}")
+        return jsonify({"error": "Permission denied to save screenshot"}), 403
     except Exception as e:
         logger.error(f"Failed to save screenshot: {str(e)}")
         return jsonify({"error": f"Failed to save screenshot: {str(e)}"}), 500
-
-    # QRコードの生成
-    qr_filename = f"qr_reward_{material_id}_{timestamp}.png"
-    qr_path = os.path.join(BASE_DIR, "qr", qr_filename)
-    qr = qrcode.make(url)
-    qr.save(qr_path)
-
-    # アップロード情報の記録
+    
+    # エビデンス登録
     evidence = {
         "id": f"{material_id}_{timestamp}",
         "material_id": material_id,
         "screenshot": filename,
-        "qr_path": qr_filename,  # QRコードのファイル名を保存
         "url": url,
         "comment": comment,
         "status": "pending",
@@ -140,11 +136,14 @@ def upload_evidence():
             uploads.append(evidence)
             f.seek(0)
             json.dump(uploads, f, ensure_ascii=False, indent=2)
+        logger.info(f"Evidence registered: {evidence['id']}")
+    except PermissionError:
+        logger.error(f"Permission denied to write uploads JSON: {UPLOADS_JSON}")
+        return jsonify({"error": "Permission denied to write uploads data"}), 403
     except Exception as e:
         logger.error(f"Failed to update uploads JSON: {str(e)}")
         return jsonify({"error": f"Failed to register evidence: {str(e)}"}), 500
-
-    logger.info(f"Evidence registered: {evidence['id']}")
+    
     return jsonify({"message": "Evidence uploaded", "evidence_id": evidence["id"]})
 
 ######################################
@@ -188,25 +187,30 @@ def generate_qr_code(material_id, timestamp):
     qr.make(fit=True)
     qr_img = qr.make_image(fill='black', back_color='white')
     qr_filename = f"qr_reward_{material_id}_{timestamp}.png"
-    qr_path = os.path.join(BASE_DIR, "qr", qr_filename)  # qr ディレクトリに保存
+    qr_path = os.path.join(DATA_DIR, qr_filename)
     logger.debug(f"Generating QR code at: {qr_path}")
     qr_img.save(qr_path)
     logger.info(f"Generated QR code: {qr_filename}")
     return qr_filename
 
 ######################################
-# QRコード配信（GET /qr/<qr_filename>）
+# QRコード配信（GET /qr/<evidence_id>）
 ######################################
-@app.route('/qr/<qr_filename>', methods=['GET'])
-def get_qr(qr_filename):
-    logger.debug(f"Requesting QR code: {qr_filename}")
-    qr_path = os.path.join(BASE_DIR, "qr", qr_filename)
-    logger.debug(f"Checking QR code file: {qr_path}")
-    if os.path.exists(qr_path):
-        logger.info(f"Sending QR code: {qr_path}")
-        return send_file(qr_path)
-    logger.warning(f"QR code not found at: {qr_path}")
-    return jsonify({"error": "QR code not found"}), 404
+@app.route('/qr/<evidence_id>', methods=['GET'])
+def get_qr(evidence_id):
+    logger.debug(f"Requesting QR code for evidence_id: {evidence_id}")
+    try:
+        material_id, timestamp = evidence_id.split('_')
+        qr_path = os.path.join(DATA_DIR, f"qr_reward_{material_id}_{timestamp}.png")
+        logger.debug(f"Checking QR code file: {qr_path}")
+        if os.path.exists(qr_path):
+            logger.info(f"Sending QR code: {qr_path}")
+            return send_file(qr_path)
+        logger.warning(f"QR code not found at: {qr_path}")
+        return jsonify({"error": "QR code not found"}), 404
+    except ValueError:
+        logger.error(f"Invalid evidence_id format: {evidence_id}")
+        return jsonify({"error": "Invalid evidence ID format"}), 400
 
 ######################################
 # エビデンスステータス確認（GET /uploads）

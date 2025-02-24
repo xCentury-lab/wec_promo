@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>アップロード一覧 - 店舗エージェント商品宣伝支援システム (ページネーション対応)</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f2f5;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #1a73e8;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+    .section {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+    .approval-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .upload-card {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .upload-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .upload-card span {
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 8px;
+      word-break: break-all;
+    }
+    .status-badge {
+      padding: 6px 10px;
+      border-radius: 4px;
+      color: #fff;
+      font-weight: bold;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
+    /* ステータスごとの色分け */
+    .status-pending {
+      background-color: #ff9800; /* オレンジ */
+    }
+    .status-approved {
+      background-color: #28a745; /* 緑 */
+    }
+    .status-rejected {
+      background-color: #dc3545; /* 赤 */
+    }
+    .navigation {
+      text-align: center;
+      margin-top: 30px;
+    }
+    .navigation a {
+      margin: 0 15px;
+      color: #1a73e8;
+      text-decoration: none;
+      padding: 8px 15px;
+      border: 1px solid #1a73e8;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      background-color: #fff;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .navigation a:hover {
+      background-color: #1a73e8;
+      color: #fff;
+    }
+    /* ページネーションボタン */
+    .pagination {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .pagination button {
+      margin: 0 5px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 4px;
+      background-color: #1a73e8;
+      color: #fff;
+      cursor: pointer;
+    }
+    .pagination button:hover {
+      background-color: #1557b0;
+    }
+    .pagination .disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    @media (max-width: 768px) {
+      .approval-grid {
+        grid-template-columns: 1fr;
+      }
+      .upload-card {
+        text-align: center;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>アップロード一覧 - 店舗エージェント商品宣伝支援システム</h1>
+
+    <div class="section">
+      <!-- カード一覧を表示する場所 -->
+      <div class="approval-grid" id="approval-list"></div>
+
+      <!-- ページネーションのボタンなどを表示する場所 -->
+      <div class="pagination" id="pagination-controls"></div>
+    </div>
+
+    <div class="navigation">
+      <a href="materials.html">商品リスト</a> |
+      <a href="upload.html">エビデンスアップロード</a> |
+      <a href="approval.html">承認結果</a>
+    </div>
+  </div>
+
+  <!-- 共通スクリプト -->
+  <script src="script.js"></script>
+
+  <script>
+  // ▼ グローバル変数的に使う
+  let allUploads = [];     // 取得した全件
+  let currentPage = 1;     // 今のページ
+  const pageSize = 9;     // 1ページあたりの件数
+
+  // ステータスごとにclassを付与して色分け
+  function getStatusClass(status) {
+    switch (status) {
+      case 'approved':
+        return 'status-badge status-approved';
+      case 'rejected':
+        return 'status-badge status-rejected';
+      default:
+        return 'status-badge status-pending'; // pending など
+    }
+  }
+
+  // ページ内容を描画する関数
+  function renderPage() {
+    const listDiv = document.getElementById('approval-list');
+    listDiv.innerHTML = '';
+
+    // ページ範囲を計算
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pageItems = allUploads.slice(startIndex, endIndex);
+
+    // このページにアイテムがない場合
+    if (!pageItems.length) {
+      listDiv.innerHTML = '<p>このページには項目がありません。</p>';
+      return;
+    }
+
+    // カードを追加
+    pageItems.forEach(upload => {
+      const card = document.createElement('div');
+      card.className = 'upload-card';
+
+      const statusClass = getStatusClass(upload.status);
+      // スクリーンショットのURL例
+      const screenshotUrl = `${serverUrl}/upload/${upload.screenshot}`;
+
+      card.innerHTML = `
+        <div class="${statusClass}">${upload.status}</div>
+        <span><strong>ID:</strong> ${upload.id}</span>
+        <span><strong>Material ID:</strong> ${upload.material_id}</span>
+        <span><strong>URL:</strong> ${upload.url}</span>
+        <span><strong>Comment:</strong> ${upload.comment || 'なし'}</span>
+        <span><strong>Timestamp:</strong> ${upload.timestamp}</span>
+        <img src="${screenshotUrl}" alt="Screenshot" style="max-width:100%; margin-top:8px;"
+             onerror="this.style.display='none';" />
+      `;
+      listDiv.appendChild(card);
+    });
+  }
+
+  // ページネーションのボタンを再描画
+  function renderPagination() {
+    const controlsDiv = document.getElementById('pagination-controls');
+    controlsDiv.innerHTML = '';
+
+    const totalPages = Math.ceil(allUploads.length / pageSize);
+
+    // Prev ボタン
+    const prevBtn = document.createElement('button');
+    prevBtn.textContent = 'Prev';
+    if (currentPage <= 1) {
+      prevBtn.disabled = true;
+      prevBtn.classList.add('disabled');
+    } else {
+      prevBtn.addEventListener('click', () => {
+        currentPage--;
+        updateView();
+      });
+    }
+    controlsDiv.appendChild(prevBtn);
+
+    // 現在ページ / 総ページ数
+    const pageInfo = document.createElement('span');
+    pageInfo.style.margin = '0 10px';
+    pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+    controlsDiv.appendChild(pageInfo);
+
+    // Next ボタン
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = 'Next';
+    if (currentPage >= totalPages) {
+      nextBtn.disabled = true;
+      nextBtn.classList.add('disabled');
+    } else {
+      nextBtn.addEventListener('click', () => {
+        currentPage++;
+        updateView();
+      });
+    }
+    controlsDiv.appendChild(nextBtn);
+  }
+
+  // ページ表示 + ページネーションを一括で更新
+  function updateView() {
+    renderPage();
+    renderPagination();
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      // 1) サーバから uploads を取得
+      allUploads = await fetchUploads();
+
+      // 2) もし0件ならメッセージ表示
+      if (!allUploads.length) {
+        document.getElementById('approval-list').innerHTML =
+          '<p>まだアップロードはありません。</p>';
+        return;
+      }
+
+      // 3) ページ表示＆ページネーション
+      currentPage = 1;
+      updateView();
+    } catch (error) {
+      console.error('Error fetching uploads:', error);
+      document.getElementById('approval-list').innerHTML =
+        `<p class="error">アップロード一覧の取得に失敗しました: ${error.message}</p>`;
+    }
+  });
+  </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品リスト - 店舗エージェント商品宣伝支援システム</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #1a73e8;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        .section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .material-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .material-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .material-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .material-card .content {
+            width: 100%;
+        }
+        .material-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .material-card p {
+            font-size: 1rem;
+            color: #555;
+            margin: 0;
+            word-wrap: break-word;
+        }
+        .material-card span {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .navigation a {
+            margin: 0 15px;
+            color: #1a73e8;
+            text-decoration: none;
+            padding: 8px 15px;
+            border: 1px solid #1a73e8;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background-color: #fff;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .navigation a:hover {
+            background-color: #1a73e8;
+            color: #fff;
+        }
+        @media (max-width: 768px) {
+            .material-grid {
+                grid-template-columns: 1fr;
+            }
+            .material-card {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>商品リスト - 店舗エージェント商品宣伝支援システム</h1>
+
+        <div class="section">
+            <div class="material-grid" id="material-list-items"></div>
+        </div>
+
+        <div class="navigation">
+            <a href="materials.html">商品リスト</a> |
+            <a href="upload.html">エビデンスアップロード</a> |
+            <a href="approval.html">承認結果</a>
+        </div>
+    </div>
+
+    <!-- script.js を読み込み -->
+    <script src="script.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // ページ読み込み時に一度だけ商品リストを取得
+        fetchMaterials();
+    }, { once: true });
+    </script>
+</body>
+</html>

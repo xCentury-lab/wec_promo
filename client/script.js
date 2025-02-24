@@ -1,152 +1,136 @@
-const serverUrl = 'http://localhost:8080'; // サーバーのURLを設定
+// ★サーバーURLを実際のIP:ポートに合わせる
+const serverUrl = 'http://192.168.11.33:8080'; 
+// 例: const serverUrl = 'http://192.168.0.10:8080';
 
-// Function to fetch and display material list
+/*----------------------------------------------
+ * 1. 商品リストを取得し、materials.html で表示
+ *---------------------------------------------*/
 async function fetchMaterials() {
   try {
     const response = await fetch(`${serverUrl}/materials`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     const data = await response.json();
     const listItems = document.getElementById('material-list-items');
-    listItems.innerHTML = '';
-    data.forEach(material => {
-      const li = document.createElement('li');
-      li.innerHTML = `${material.name} (<strong>${material.type}</strong>) `;
-      const editButton = document.createElement('button');
-      editButton.textContent = 'Edit';
-      editButton.addEventListener('click', () => loadMaterialForEditing(material.id, material.type));
-      li.appendChild(editButton);
-      listItems.appendChild(li);
-    });
+    if (listItems) {
+      listItems.innerHTML = ''; // 既存の内容をクリア
+
+      for (const material of data) {
+        const div = document.createElement('div');
+        div.className = 'material-card';
+
+        // テキストファイルの内容を取得
+        const textContent = await fetchMaterialText(material.id);
+
+        div.innerHTML = `
+          <span>${material.name} (${material.category})</span>
+          <div class="content">
+            <img src="${serverUrl}/materials/${material.id}?type=image" alt="${material.name}" onerror="this.style.display='none';">
+            <p>${textContent}</p>
+          </div>
+        `;
+        listItems.appendChild(div);
+      }
+    }
   } catch (error) {
     console.error('Error fetching materials:', error);
+    const resultDiv = document.getElementById('result') || document.createElement('div');
+    resultDiv.classList.add('error');
+    resultDiv.innerText = `商品リストの取得に失敗しました: ${error.message}`;
+    document.body.appendChild(resultDiv);
   }
 }
 
-// Function to load material for editing
-async function loadMaterialForEditing(id, type) {
-  const editorContent = document.getElementById('editor-content');
-  editorContent.innerHTML = '';
-  const response = await fetch(`${serverUrl}/materials/${id}`);
-  const blob = await response.blob();
-  if (type === 'image') {
-    const imageUrl = URL.createObjectURL(blob);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.onload = function() {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      // Add text input for editing
-      const textInput = document.createElement('input');
-      textInput.type = 'text';
-      textInput.placeholder = 'Enter text to add';
-      const addTextButton = document.createElement('button');
-      addTextButton.textContent = 'Add Text';
-      addTextButton.addEventListener('click', () => {
-        const text = textInput.value;
-        ctx.fillStyle = 'black';
-        ctx.font = '20px Arial';
-        ctx.fillText(text, 10, 30);
-      });
-      editorContent.appendChild(canvas);
-      editorContent.appendChild(textInput);
-      editorContent.appendChild(addTextButton);
-    };
-    img.src = imageUrl;
-  } else if (type === 'text') {
-    const text = await blob.text();
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    editorContent.appendChild(textArea);
+/*----------------------------------------------
+ * 2. 指定IDのテキストファイルを取得
+ *---------------------------------------------*/
+async function fetchMaterialText(id) {
+  try {
+    const response = await fetch(`${serverUrl}/materials/${id}?type=text`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.text();
+  } catch (error) {
+    console.error('Error fetching material text:', error);
+    return 'テキストの取得に失敗しました。';
   }
-  document.getElementById('material-list').style.display = 'none';
-  document.getElementById('editor').style.display = 'block';
 }
 
-// Function to download edited material
-document.getElementById('download-button').addEventListener('click', () => {
-  const editorContent = document.getElementById('editor-content');
-  if (editorContent.firstChild.tagName === 'CANVAS') {
-    const canvas = editorContent.firstChild;
-    canvas.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'edited_image.jpg';
-      a.click();
-    }, 'image/jpeg');
-  } else if (editorContent.firstChild.tagName === 'TEXTAREA') {
-    const text = editorContent.firstChild.value;
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'edited_text.txt';
-    a.click();
+/*----------------------------------------------
+ * 3. 全エビデンスアップロード情報を取得
+ *---------------------------------------------*/
+async function fetchUploads() {
+  try {
+    const response = await fetch(`${serverUrl}/uploads`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching uploads:', error);
+    return [];
   }
-});
+}
 
-// Function to upload new image
-document.getElementById('image-upload-button').addEventListener('click', async () => {
-  const fileInput = document.getElementById('image-upload-input');
-  if (fileInput.files.length) {
-    const form = new FormData();
-    form.append('file', fileInput.files[0]);
-    form.append('type', 'image');
-    try {
-      await fetch(`${serverUrl}/materials`, {
-        method: 'POST',
-        body: form
-      });
-      fetchMaterials();
-    } catch (error) {
-      console.error('Error uploading image:', error);
+/*----------------------------------------------
+ * 4. 全エビデンスを一覧表示し、ステータスごとに色分け
+ *---------------------------------------------*/
+async function displayAllUploads() {
+  try {
+    const uploads = await fetchUploads();
+    const container = document.getElementById('approval-list');
+    if (!container) {
+      console.warn('No element with ID "approval-list" found in the HTML.');
+      return;
+    }
+
+    container.innerHTML = '';
+
+    if (uploads.length === 0) {
+      container.innerHTML = '<p>まだアップロードはありません。</p>';
+      return;
+    }
+
+    // すべてのアップロードをカード形式で表示
+    for (const upload of uploads) {
+      const card = document.createElement('div');
+      card.className = 'upload-card';
+
+      // ステータスごとに色分けするclass名
+      const statusClass = getStatusClass(upload.status);
+
+      card.innerHTML = `
+        <div class="${statusClass}">${upload.status}</div>
+        <span><strong>ID:</strong> ${upload.id}</span>
+        <span><strong>Material ID:</strong> ${upload.material_id}</span>
+        <span><strong>URL:</strong> ${upload.url}</span>
+        <span><strong>Comment:</strong> ${upload.comment}</span>
+        <span><strong>Timestamp:</strong> ${upload.timestamp}</span>
+      `;
+      container.appendChild(card);
+    }
+  } catch (error) {
+    console.error('Error displaying all uploads:', error);
+    const container = document.getElementById('approval-list');
+    if (container) {
+      container.innerHTML = `<p class="error">アップロード一覧の取得に失敗しました: ${error.message}</p>`;
     }
   }
-});
-
-// Function to upload new text
-document.getElementById('text-upload-button').addEventListener('click', async () => {
-  const textInput = document.getElementById('text-upload-input');
-  const text = textInput.value;
-  if (text) {
-    const form = new FormData();
-    const blob = new Blob([text], { type: 'text/plain' });
-    form.append('file', blob, 'uploaded_text.txt');
-    form.append('type', 'text');
-    try {
-      await fetch(`${serverUrl}/materials`, {
-        method: 'POST',
-        body: form
-      });
-      fetchMaterials();
-    } catch (error) {
-      console.error('Error uploading text:', error);
-    }
-  }
-});
-
-// Function to show uploader
-document.getElementById('upload-button').addEventListener('click', () => {
-  document.getElementById('material-list').style.display = 'none';
-  document.getElementById('uploader').style.display = 'block';
-});
-
-// Function to go back to material list from editor or uploader
-function backToMaterialList() {
-  document.getElementById('editor').style.display = 'none';
-  document.getElementById('uploader').style.display = 'none';
-  document.getElementById('material-list').style.display = 'block';
 }
 
-// Add back button to editor and uploader
-document.getElementById('editor').innerHTML += '<button id="back-button-editor">Back</button>';
-document.getElementById('uploader').innerHTML += '<button id="back-button-uploader">Back</button>';
-
-document.getElementById('back-button-editor').addEventListener('click', backToMaterialList);
-document.getElementById('back-button-uploader').addEventListener('click', backToMaterialList);
-
-// Initial fetch of materials
-document.addEventListener('DOMContentLoaded', () => {
-  fetchMaterials(); // 素材リストを取得して表示
-});
+/*----------------------------------------------
+ * ステータスに応じたクラス名を返す
+ *---------------------------------------------*/
+function getStatusClass(status) {
+  switch (status) {
+    case 'approved':
+      return 'status-badge status-approved';
+    case 'rejected':
+      return 'status-badge status-rejected';
+    default:
+      // pendingなど
+      return 'status-badge status-pending';
+  }
+}

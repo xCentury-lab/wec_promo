@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>エビデンスアップロード - 店舗エージェント商品宣伝支援システム</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f2f5;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #1a73e8;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+    .section {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    label {
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+    input, textarea, select, button {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #1a73e8;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      padding: 12px;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #1557b0;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .error {
+      color: #dc3545;
+      font-weight: bold;
+    }
+    .success {
+      color: #28a745;
+      font-weight: bold;
+    }
+    .uploading {
+      color: #007bff;
+      font-weight: bold;
+    }
+    .navigation {
+      text-align: center;
+      margin-top: 30px;
+    }
+    .navigation a {
+      margin: 0 15px;
+      color: #1a73e8;
+      text-decoration: none;
+      padding: 8px 15px;
+      border: 1px solid #1a73e8;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      background-color: #fff;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .navigation a:hover {
+      background-color: #1a73e8;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>エビデンスアップロード - 店舗エージェント商品宣伝支援システム</h1>
+
+    <div class="section">
+      <form id="uploadForm" enctype="multipart/form-data">
+        <!-- ファイル選択 -->
+        <div>
+          <label for="screenshot">スクリーンショット画像</label>
+          <input type="file" name="screenshot" id="screenshot" accept="image/*" required />
+        </div>
+
+        <!-- SNS投稿URL -->
+        <div>
+          <label for="url">SNS投稿URL</label>
+          <input type="text" name="url" id="url" placeholder="http://example.com" required />
+        </div>
+
+        <!-- コメント -->
+        <div>
+          <label for="comment">コメント</label>
+          <textarea name="comment" id="comment" rows="3" placeholder="任意でコメントを入力してください"></textarea>
+        </div>
+
+        <!-- 商品のドロップダウン -->
+        <div>
+          <label for="materialSelect">対象の商品</label>
+          <select name="material_id" id="materialSelect" required>
+            <option value="" disabled selected>--- 商品を選択してください ---</option>
+            <!-- JSで動的に追加します -->
+          </select>
+        </div>
+
+        <!-- アップロードボタン -->
+        <button type="submit">アップロード</button>
+      </form>
+      <!-- 結果表示領域 -->
+      <div id="result"></div>
+    </div>
+
+    <!-- ページ下部のナビゲーション -->
+    <div class="navigation">
+      <a href="materials.html">商品リスト</a> |
+      <a href="upload.html">エビデンスアップロード</a> |
+      <a href="approval.html">承認結果</a>
+    </div>
+  </div>
+
+  <!-- 共通スクリプト -->
+  <script src="script.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const materialSelect = document.getElementById('materialSelect');
+      const resultDiv = document.getElementById('result');
+
+      // 1. ページロード時にサーバの /materials から商品リストを取得して、セレクトに表示
+      try {
+        const res = await fetch(`${serverUrl}/materials`);
+        if (!res.ok) {
+          throw new Error(`Fail to fetch materials. Status: ${res.status}`);
+        }
+        const materials = await res.json();
+
+        materials.forEach((m) => {
+          // 例: value=1, text="1: オーガニックコーヒー (飲料)"
+          const option = document.createElement('option');
+          option.value = m.id;
+          option.textContent = `${m.id}: ${m.name} (${m.category})`;
+          materialSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error fetching materials:', error);
+        // 取得失敗時はメッセージを表示（必要なら）
+      }
+
+      // 2. フォーム送信時
+      const uploadForm = document.getElementById('uploadForm');
+      uploadForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // 「アップロード中」のメッセージを表示
+        resultDiv.innerHTML = '<span class="uploading">アップロード中です。しばらくお待ちください...</span>';
+
+        const formData = new FormData(this);
+        try {
+          const response = await fetch(`${serverUrl}/uploads`, {
+            method: 'POST',
+            body: formData
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          // 成功時
+          resultDiv.innerHTML = `<span class="success">${data.message} (ID: ${data.evidence_id})</span>`;
+        } catch (error) {
+          console.error('Error uploading evidence:', error);
+          // 失敗時
+          resultDiv.innerHTML = `<span class="error">アップロードに失敗しました: ${error.message}</span>`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
